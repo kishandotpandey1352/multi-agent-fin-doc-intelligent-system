@@ -96,6 +96,19 @@ Retry actions can include:
 - Re-synthesizing the final response
 - Returning a controlled fallback when confidence is low
 
+## Day 2 Deliverables (System Design)
+
+- [Architecture draft](docs/architecture-draft.md)
+- [Workflow diagram draft](docs/workflow-diagram-draft.md)
+- [State schema document](docs/state-schema.md)
+
+These documents lock the design for:
+
+- Graph workflow
+- State schema
+- Agent responsibilities
+- Routing and retry logic
+
 ## Getting Started
 
 > Note: This repository is currently at an early stage. The commands below represent the intended setup once implementation files are in place.

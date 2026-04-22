@@ -109,6 +109,40 @@ These documents lock the design for:
 - Agent responsibilities
 - Routing and retry logic
 
+## Day 3 Deliverables (Data and Retrieval Design)
+
+- [Retrieval design doc](docs/day3-retrieval-design.md)
+- [Metadata schema finalized](docs/day3-metadata-schema.md)
+- [Model/store choices finalized](docs/day3-model-store-decisions.md)
+
+Day 3 focus locks decisions for:
+
+- Document source coverage
+- Chunking and metadata strategy
+- Embedding, vector store, and app DB choices
+
+## Day 3 Quick Start (Local Retrieval)
+
+After placing PDFs in `data/`, run:
+
+```bash
+pip install -r requirements.txt
+python -m scripts.build_index --max-docs 6 --max-pages 8 --companies tesla apple nvidia
+python -m scripts.smoke_test
+```
+
+Full build:
+
+```bash
+python -m scripts.build_index
+```
+
+Generated artifacts:
+
+- `data/index/faiss.index` (when FAISS is available)
+- `data/index/faiss.npy` (NumPy fallback when FAISS is unavailable)
+- `data/index/metadata.db`
+
 ## Getting Started
 
 > Note: This repository is currently at an early stage. The commands below represent the intended setup once implementation files are in place.
@@ -166,6 +200,11 @@ docs/
 data/
 tests/
 ```
+## Data collection links
+- https://ir.tesla.com/#quarterly-disclosure
+- https://ir.tesla.com/sec-filings
+
+### NVIDIA
 
 ## Roadmap
 

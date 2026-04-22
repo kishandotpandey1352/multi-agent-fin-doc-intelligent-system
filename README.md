@@ -121,6 +121,28 @@ Day 3 focus locks decisions for:
 - Chunking and metadata strategy
 - Embedding, vector store, and app DB choices
 
+## Day 4 Deliverables (Repo and Scaffolding Setup)
+
+- Base app structure created under `app/` (agents, graph, ingestion, retrieval, evaluation, charts, api, utils, config)
+- Environment template added: `.env.example`
+- Dependency management updated: `requirements.txt`, `requirements-dev.txt`
+- Base logging scaffold added: `app/utils/logging.py`
+- LangSmith tracing setup added: `app/config/tracing.py`
+
+Day 4 quick setup:
+
+```bash
+copy .env.example .env
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+LangSmith enablement:
+
+1. Set `LANGSMITH_API_KEY` in `.env`.
+2. Optionally set `LANGSMITH_PROJECT`.
+3. Keep `LANGCHAIN_TRACING_V2=true`.
+
 ## Day 3 Quick Start (Local Retrieval)
 
 After placing PDFs in `data/`, run:

@@ -143,6 +143,35 @@ LangSmith enablement:
 2. Optionally set `LANGSMITH_PROJECT`.
 3. Keep `LANGCHAIN_TRACING_V2=true`.
 
+## Day 5 Deliverables (Baseline Eval + Ingestion Pipeline)
+
+- Baseline eval dataset added: `data/eval/baseline_questions_v1.jsonl` (15 questions)
+- Ingestion flow supports upload-and-index path: `scripts/upload_and_index.py`
+- Baseline eval runner added: `scripts/run_baseline_eval.py`
+
+Day 5 data flow command examples:
+
+```bash
+# 1) Full indexing from data/ folders
+python -m scripts.build_index
+
+# 2) Upload one PDF and index only that company scope
+python -m scripts.upload_and_index --file "C:\path\to\report.pdf" --company tesla --source-type annual --append
+
+# 3) Run baseline retrieval evaluation
+python -m scripts.run_baseline_eval
+```
+
+Pipeline coverage in code:
+
+- PDF loading and text extraction: `app/ingestion/pdf_loader.py`
+- Text cleaning: `app/ingestion/pdf_loader.py`
+- Metadata inference/validation: `app/retrieval/metadata.py`
+- Chunking: `app/retrieval/chunking.py`
+- Embeddings: `app/retrieval/embedding.py`
+- FAISS indexing (with NumPy fallback): `app/retrieval/vector_store.py`
+- Build orchestration: `app/retrieval/pipeline.py`
+
 ## Day 3 Quick Start (Local Retrieval)
 
 After placing PDFs in `data/`, run:

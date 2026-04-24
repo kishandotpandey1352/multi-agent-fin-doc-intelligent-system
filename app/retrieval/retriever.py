@@ -1,4 +1,9 @@
 from dataclasses import dataclass
+from html import unescape
+import json
+import re
+from urllib.parse import urlencode
+from urllib.request import urlopen
 from typing import Any, Dict, List, Optional
 
 from app.retrieval.search import search
@@ -49,14 +54,176 @@ class Retriever:
         }
 
     def retrieve_web(self, request: RetrievalRequest) -> Dict[str, Any]:
-        # Day 6 scope: reserve API shape for web retrieval without implementing external calls yet.
+        rewritten = self.rewrite_question(request.question)
+        query = rewritten
+        if request.company:
+            query = f"{request.company} investor relations {rewritten}"
+
+        raw_results = self._duckduckgo_search(query=query, max_results=request.final_k)
+        web_rows: List[Dict[str, Any]] = []
+        for idx, item in enumerate(raw_results):
+            score = max(0.0, 1.0 - (idx * 0.08))
+            web_rows.append(
+                {
+                    "vector_id": -1,
+                    "chunk_id": f"web_{idx}",
+                    "document_id": f"web_doc_{idx}",
+                    "chunk_index": idx,
+                    "page_number": 0,
+                    "section_title": item.get("title", "web_result"),
+                    "text": item.get("snippet", ""),
+                    "token_count": len(item.get("snippet", "").split()),
+                    "embedding_model": "web-none",
+                    "embedding_dim": 0,
+                    "filename": item.get("url", "web_result"),
+                    "company": request.company or "web",
+                    "year": request.year or 0,
+                    "source_type": "web",
+                    "upload_time": "",
+                    "trust_tier": "external_web",
+                    "path": item.get("url", ""),
+                    "score": score,
+                    "final_score": score,
+                }
+            )
+
         return {
             "source": "web",
             "query": request.question,
-            "rewritten_query": self.rewrite_question(request.question),
-            "results": [],
-            "note": "Web retrieval not implemented yet. Planned as next step.",
+            "rewritten_query": rewritten,
+            "results": web_rows,
+            "note": "Web retrieval used DuckDuckGo Instant Answer API.",
         }
+
+    def _duckduckgo_search(self, query: str, max_results: int = 8) -> List[Dict[str, str]]:
+        params = urlencode(
+            {
+                "q": query,
+                "format": "json",
+                "no_html": "1",
+                "skip_disambig": "1",
+            }
+        )
+        url = f"https://api.duckduckgo.com/?{params}"
+
+        try:
+            with urlopen(url, timeout=12) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except Exception:
+            payload = {}
+
+        results: List[Dict[str, str]] = []
+
+        abstract_text = payload.get("AbstractText", "").strip()
+        abstract_url = payload.get("AbstractURL", "").strip()
+        heading = payload.get("Heading", "").strip() or "DuckDuckGo"
+        if abstract_text:
+            results.append(
+                {
+                    "title": heading,
+                    "url": abstract_url or "https://duckduckgo.com",
+                    "snippet": abstract_text,
+                }
+            )
+
+        def add_topic(topic: Dict[str, Any]) -> None:
+            text = str(topic.get("Text", "")).strip()
+            first_url = str(topic.get("FirstURL", "")).strip()
+            if text:
+                results.append(
+                    {
+                        "title": text[:80],
+                        "url": first_url or "https://duckduckgo.com",
+                        "snippet": text,
+                    }
+                )
+
+        for topic in payload.get("RelatedTopics", []):
+            nested = topic.get("Topics")
+            if isinstance(nested, list):
+                for child in nested:
+                    add_topic(child)
+            else:
+                add_topic(topic)
+
+        if not results:
+            results.extend(self._duckduckgo_html_fallback(query=query, max_results=max_results))
+
+        if not results:
+            results.extend(self._bing_rss_fallback(query=query, max_results=max_results))
+
+        if not results:
+            results.append(
+                {
+                    "title": "No web results",
+                    "url": "https://duckduckgo.com",
+                    "snippet": "No results were returned from the web search API for this query.",
+                }
+            )
+
+        return results[:max_results]
+
+    def _duckduckgo_html_fallback(self, query: str, max_results: int) -> List[Dict[str, str]]:
+        params = urlencode({"q": query})
+        url = f"https://html.duckduckgo.com/html/?{params}"
+
+        try:
+            with urlopen(url, timeout=12) as response:
+                html = response.read().decode("utf-8", errors="ignore")
+        except Exception:
+            return []
+
+        anchors = re.findall(
+            r'<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>',
+            html,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+
+        results: List[Dict[str, str]] = []
+        for href, title_html in anchors[:max_results]:
+            title_text = re.sub(r"<.*?>", "", title_html)
+            title_text = unescape(title_text).strip()
+            results.append(
+                {
+                    "title": title_text or "Web result",
+                    "url": unescape(href).strip(),
+                    "snippet": title_text or "Web result",
+                }
+            )
+
+        return results
+
+    def _bing_rss_fallback(self, query: str, max_results: int) -> List[Dict[str, str]]:
+        params = urlencode({"q": query, "format": "rss"})
+        url = f"https://www.bing.com/search?{params}"
+
+        try:
+            with urlopen(url, timeout=12) as response:
+                xml = response.read().decode("utf-8", errors="ignore")
+        except Exception:
+            return []
+
+        items = re.findall(r"<item>(.*?)</item>", xml, flags=re.IGNORECASE | re.DOTALL)
+        results: List[Dict[str, str]] = []
+
+        for item in items[:max_results]:
+            title_match = re.search(r"<title>(.*?)</title>", item, flags=re.IGNORECASE | re.DOTALL)
+            link_match = re.search(r"<link>(.*?)</link>", item, flags=re.IGNORECASE | re.DOTALL)
+            desc_match = re.search(r"<description>(.*?)</description>", item, flags=re.IGNORECASE | re.DOTALL)
+
+            title = unescape(title_match.group(1).strip()) if title_match else "Web result"
+            link = unescape(link_match.group(1).strip()) if link_match else "https://www.bing.com"
+            desc = unescape(desc_match.group(1).strip()) if desc_match else title
+
+            results.append(
+                {
+                    "title": title,
+                    "url": link,
+                    "snippet": re.sub(r"<.*?>", "", desc),
+                }
+            )
+
+        return results
 
     def retrieve(self, request: RetrievalRequest) -> Dict[str, Any]:
         if request.source == "local":

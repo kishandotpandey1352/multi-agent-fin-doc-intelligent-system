@@ -176,7 +176,7 @@ Pipeline coverage in code:
 
 - Retriever abstraction added: `app/retrieval/retriever.py`
 - Question rewriting added in retriever preprocessing
-- Local-vs-web retrieval path separated (web path scaffold for later implementation)
+- Local-vs-web retrieval path separated with web search fallback implementation
 - Retrieval quality test script added: `scripts/evaluate_retrieval_quality.py`
 - Manual retrieval inspection script added: `scripts/manual_retrieval_inspection.py`
 - Top-k tuning notes saved: `docs/day6-topk-tuning-notes.md`

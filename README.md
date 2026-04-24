@@ -192,6 +192,30 @@ python -m scripts.evaluate_retrieval_quality --top-k 12 --final-k 8
 python -m scripts.manual_retrieval_inspection
 ```
 
+## Day 7 Deliverables (Planner + Synthesizer MVP)
+
+- Planner added: `app/agents/planner.py`
+- Synthesizer added: `app/agents/synthesizer.py`
+- Basic LangGraph flow added: `app/graph/answer_flow.py`
+- End-to-end demo script added: `scripts/run_answer_flow.py`
+
+Day 7 pipeline:
+
+- query -> plan -> retrieve -> synthesize
+
+Planner intent classes:
+
+- q&a
+- summary
+- chart request
+- comparative analysis
+
+Day 7 command example:
+
+```bash
+python -m scripts.run_answer_flow
+```
+
 ## Day 3 Quick Start (Local Retrieval)
 
 After placing PDFs in `data/`, run:

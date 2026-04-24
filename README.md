@@ -172,6 +172,26 @@ Pipeline coverage in code:
 - FAISS indexing (with NumPy fallback): `app/retrieval/vector_store.py`
 - Build orchestration: `app/retrieval/pipeline.py`
 
+## Day 6 Deliverables (Retriever Implementation)
+
+- Retriever abstraction added: `app/retrieval/retriever.py`
+- Question rewriting added in retriever preprocessing
+- Local-vs-web retrieval path separated (web path scaffold for later implementation)
+- Retrieval quality test script added: `scripts/evaluate_retrieval_quality.py`
+- Manual retrieval inspection script added: `scripts/manual_retrieval_inspection.py`
+- Top-k tuning notes saved: `docs/day6-topk-tuning-notes.md`
+- Manual inspection notes saved: `docs/day6-manual-retrieval-inspection.md`
+
+Day 6 command examples:
+
+```bash
+# Retrieval quality checks
+python -m scripts.evaluate_retrieval_quality --top-k 12 --final-k 8
+
+# Manual inspection of retrieved chunks
+python -m scripts.manual_retrieval_inspection
+```
+
 ## Day 3 Quick Start (Local Retrieval)
 
 After placing PDFs in `data/`, run:

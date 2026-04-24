@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from app.retrieval.search import search
+from app.retrieval.retriever import RetrievalRequest, Retriever
 
 
 DATASET_PATH = Path("data/eval/baseline_questions_v1.jsonl")
@@ -21,10 +21,18 @@ if __name__ == "__main__":
 
     total = 0
     with_hits = 0
+    retriever = Retriever()
 
     for item in load_questions(DATASET_PATH):
         total += 1
-        results = search(query=item["question"], company=item["company"], source_type=item["source_type"])
+        request = RetrievalRequest(
+            question=item["question"],
+            company=item["company"],
+            source_type=item["source_type"],
+            source="local",
+        )
+        response = retriever.retrieve(request)
+        results = response["results"]
         hit = len(results) > 0
         if hit:
             with_hits += 1

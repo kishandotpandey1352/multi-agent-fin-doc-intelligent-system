@@ -57,6 +57,7 @@ class Planner:
         return PLAN_QA
 
     def plan(self, query: str, company: Optional[str] = None, year: Optional[int] = None) -> QueryPlan:
+        
         intent = self.classify(query)
 
         rewritten_query = query.strip()

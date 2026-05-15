@@ -33,14 +33,25 @@ if __name__ == "__main__":
         print(f"Intent: {state['plan']['intent']}")
         print(f"Retrieval Source: {state['retrieval'].get('source', 'unknown')}")
         print(f"Evidence Count: {state['answer']['evidence_count']}")
-        print("Answer:")
+        print("\nExecutive summary")
+        summary = state["answer"]["executive_summary"].encode("ascii", errors="replace").decode("ascii")
+        print(summary)
 
-        answer_text = state["answer"]["answer"].encode("ascii", errors="replace").decode("ascii")
-        print(answer_text)
+        print("\nFindings")
+        for item in state["answer"]["findings"]:
+            line = item.encode("ascii", errors="replace").decode("ascii")
+            print(f"- {line}")
 
-        print("Citations:")
-        for citation in state["answer"]["citations"]:
-            print(
-                f"  - [{citation['id']}] {citation['filename']} "
-                f"(page={citation['page_number']}, score={citation['score']})"
-            )
+        print("\nRisks")
+        for item in state["answer"]["risks"]:
+            line = item.encode("ascii", errors="replace").decode("ascii")
+            print(f"- {line}")
+
+        print("\nCitations")
+        for item in state["answer"]["citations_formatted"]:
+            line = item.encode("ascii", errors="replace").decode("ascii")
+            print(f"- {line}")
+
+        print("\nConfidence score")
+        print(state["answer"]["confidence_score"])
+        print(state["answer"]["confidence_note"])

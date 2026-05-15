@@ -216,6 +216,42 @@ Day 7 command example:
 python -m scripts.run_answer_flow
 ```
 
+## Day 8 Deliverables (Citations + Output Formatting)
+
+- Citation formatting added in `app/agents/synthesizer.py`
+- Structured output fields added: executive summary, findings, risks, citations, confidence score
+- Demo script prints the new output format: `scripts/run_answer_flow.py`
+
+Day 8 output format:
+
+- Executive summary
+- Findings
+- Risks
+- Citations
+- Confidence score
+
+Example output structure:
+
+```text
+Executive summary
+<summary sentence or excerpt>
+
+Findings
+- [1] <evidence excerpt>
+- [2] <evidence excerpt>
+
+Risks
+- [3] <risk excerpt>
+
+Citations
+- [1] <filename> (page <n>)
+- [2] <filename> (page <n>)
+
+Confidence score
+0.73
+Medium confidence: evidence is present but limited in score or coverage.
+```
+
 ## Day 3 Quick Start (Local Retrieval)
 
 After placing PDFs in `data/`, run:

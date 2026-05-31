@@ -357,3 +357,17 @@ MIT License
 ## Summary
 
 This project demonstrates a practical financial AI assistant pattern: multi-agent orchestration, citation-grounded retrieval-augmented generation, and LLMOps-style observability for trustworthy outputs.
+
+## Run the app
+
+Core app:
+
+```bash
+python -m uvicorn app.main:app --reload
+```
+
+Backend API (routes under backend/app):
+
+```bash
+python -m uvicorn backend.app.api.main:app --reload
+```

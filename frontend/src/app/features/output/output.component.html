@@ -1,0 +1,35 @@
+<article class="card wide" *ngIf="response as resp">
+  <div class="card-title">
+    <h2>Structured output</h2>
+    <p>Executive summary, findings, risks, citations, confidence.</p>
+  </div>
+  <div class="stack">
+    <div>
+      <h3>Executive summary</h3>
+      <p>{{ resp.executive_summary }}</p>
+    </div>
+    <div>
+      <h3>Findings</h3>
+      <ul>
+        <li *ngFor="let item of resp.findings">{{ item }}</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Risks</h3>
+      <ul>
+        <li *ngFor="let item of resp.risks">{{ item }}</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Citations</h3>
+      <ul>
+        <li *ngFor="let item of resp.citations_formatted">{{ item }}</li>
+      </ul>
+    </div>
+    <div class="confidence">
+      <h3>Confidence</h3>
+      <p class="score">{{ resp.confidence_score }}</p>
+      <p>{{ resp.confidence_note }}</p>
+    </div>
+  </div>
+</article>

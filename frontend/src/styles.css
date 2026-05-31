@@ -1,0 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono&display=swap');
+@import '@angular/material/prebuilt-themes/indigo-pink.css';
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	font-family: 'DM Sans', sans-serif;
+	background: #f6f4ef;
+}
+
+button,
+input,
+select,
+textarea {
+	font-family: inherit;
+}
+
+.mat-mdc-tab-group {
+	--mdc-tab-indicator-active-indicator-color: #0f766e;
+	--mat-tab-header-active-label-text-color: #0f766e;
+	--mat-tab-header-active-ripple-color: rgba(15, 118, 110, 0.2);
+	--mat-tab-header-inactive-label-text-color: #41505f;
+	--mat-tab-header-inactive-ripple-color: rgba(15, 118, 110, 0.12);
+}

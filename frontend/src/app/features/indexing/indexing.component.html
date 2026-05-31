@@ -1,0 +1,26 @@
+<article class="card">
+  <div class="card-title">
+    <h2>Index corpus</h2>
+    <p>Build or refresh the vector index.</p>
+  </div>
+  <div class="field-group">
+    <label class="label">Company filters (comma separated)</label>
+    <input type="text" [(ngModel)]="companyFilters" placeholder="tesla,apple,nvidia" />
+  </div>
+  <div class="field-row">
+    <div class="field-group">
+      <label class="label">Max docs</label>
+      <input type="number" [(ngModel)]="maxDocs" />
+    </div>
+    <div class="field-group">
+      <label class="label">Max pages</label>
+      <input type="number" [(ngModel)]="maxPages" />
+    </div>
+  </div>
+  <label class="toggle">
+    <input type="checkbox" [(ngModel)]="resetIndex" />
+    Reset index before ingest
+  </label>
+  <button class="primary" (click)="startIndex()">Start indexing</button>
+  <p class="status">{{ status }}</p>
+</article>

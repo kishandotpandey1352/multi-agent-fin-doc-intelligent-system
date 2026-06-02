@@ -13,6 +13,8 @@ class AnswerState(TypedDict, total=False):
     query: str
     company: Optional[str]
     year: Optional[int]
+    retry_count: int
+    max_retries: int
     plan: Dict[str, Any]
     retrieval: Dict[str, Any]
     retrieved_rows: List[Dict[str, Any]]
@@ -81,8 +83,46 @@ def build_answer_graph() -> Any:
         report = critic.review(
             question=state["query"],
             answer=state.get("answer", {}),
+            retrieved_rows=state.get("retrieved_rows", []),
         )
-        return {"critic": report}
+        answer = dict(state.get("answer", {}))
+        critic_confidence = report.get("confidence_score")
+        if critic_confidence is not None:
+            answer["confidence_score"] = min(
+                float(answer.get("confidence_score", 0.0) or 0.0),
+                float(critic_confidence),
+            )
+        if report.get("reduce_confidence"):
+            note = str(answer.get("confidence_note", "")).strip()
+            summary = str(report.get("summary", "")).strip()
+            if summary:
+                answer["confidence_note"] = f"{note} Critic: {summary}".strip()
+        return {"critic": report, "answer": answer}
+
+    def retry_node(state: AnswerState) -> AnswerState:
+        plan = dict(state.get("plan", {}))
+        retry_count = int(state.get("retry_count", 0)) + 1
+        top_k = int(plan.get("top_k", 12)) + 4
+        final_k = int(plan.get("final_k", 8)) + 2
+        plan["top_k"] = min(top_k, 30)
+        plan["final_k"] = min(final_k, 15)
+
+        source = str(plan.get("retrieve_source", "auto"))
+        if retry_count >= 2 and source == "auto":
+            plan["retrieve_source"] = "web"
+
+        return {
+            "plan": plan,
+            "retry_count": retry_count,
+        }
+
+    def should_retry(state: AnswerState) -> str:
+        report = state.get("critic", {})
+        retry_count = int(state.get("retry_count", 0))
+        max_retries = int(state.get("max_retries", 2))
+        if report.get("should_retry") and retry_count < max_retries:
+            return "retry"
+        return "end"
 
     graph = StateGraph(AnswerState)
     graph.add_node("plan_step", plan_node)
@@ -90,13 +130,22 @@ def build_answer_graph() -> Any:
     graph.add_node("evaluate_step", evaluate_node)
     graph.add_node("synthesize_step", synthesize_node)
     graph.add_node("critic_step", critic_node)
+    graph.add_node("retry_step", retry_node)
 
     graph.set_entry_point("plan_step")
     graph.add_edge("plan_step", "retrieve_step")
     graph.add_edge("retrieve_step", "evaluate_step")
     graph.add_edge("evaluate_step", "synthesize_step")
     graph.add_edge("synthesize_step", "critic_step")
-    graph.add_edge("critic_step", END)
+    graph.add_conditional_edges(
+        "critic_step",
+        should_retry,
+        {
+            "retry": "retry_step",
+            "end": END,
+        },
+    )
+    graph.add_edge("retry_step", "retrieve_step")
 
     return graph.compile()
 
@@ -107,5 +156,7 @@ def run_answer_pipeline(query: str, company: Optional[str] = None, year: Optiona
         "query": query,
         "company": company,
         "year": year,
+        "retry_count": 0,
+        "max_retries": 2,
     }
     return app.invoke(initial_state)

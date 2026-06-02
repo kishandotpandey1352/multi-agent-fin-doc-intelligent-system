@@ -45,33 +45,64 @@ def run_answer(
     if source:
         plan.retrieve_source = source
 
-    request = RetrievalRequest(
-        question=str(plan.rewritten_query),
-        company=plan.company,
-        year=plan.year,
-        source_type=plan.source_type,
-        top_k=int(plan.top_k),
-        final_k=int(plan.final_k),
-        source=str(plan.retrieve_source),
-    )
-    retrieval = retriever.retrieve(request)
-    evaluation = evaluator.evaluate(
-        question=str(plan.rewritten_query),
-        rows=retrieval.get("results", []),
-        max_results=int(plan.final_k),
-    )
-    retrieval["evaluation"] = evaluation["evaluation"]
-    answer = synthesizer.synthesize(
-        query=question,
-        intent=str(plan.intent),
-        retrieved_rows=evaluation["filtered_rows"],
-    )
-    critic_report = critic.review(question=question, answer=answer)
-    if critic_report.get("reduce_confidence"):
-        suggested = float(critic_report.get("suggested_confidence", 0.0) or 0.0)
-        answer["confidence_score"] = min(answer.get("confidence_score", 0.0), suggested)
-        note = str(answer.get("confidence_note", ""))
-        answer["confidence_note"] = f"{note} Critic: {critic_report.get('summary', '')}".strip()
+    max_retries = 2
+    attempt = 0
+    retrieval: Dict[str, Any] = {}
+    answer: Dict[str, Any] = {}
+    critic_report: Dict[str, Any] = {}
+
+    while attempt <= max_retries:
+        request = RetrievalRequest(
+            question=str(plan.rewritten_query),
+            company=plan.company,
+            year=plan.year,
+            source_type=plan.source_type,
+            top_k=int(plan.top_k),
+            final_k=int(plan.final_k),
+            source=str(plan.retrieve_source),
+        )
+        retrieval = retriever.retrieve(request)
+        evaluation = evaluator.evaluate(
+            question=str(plan.rewritten_query),
+            rows=retrieval.get("results", []),
+            max_results=int(plan.final_k),
+        )
+        retrieval["evaluation"] = evaluation["evaluation"]
+        retrieval["retry_count"] = attempt
+
+        answer = synthesizer.synthesize(
+            query=question,
+            intent=str(plan.intent),
+            retrieved_rows=evaluation["filtered_rows"],
+        )
+        critic_report = critic.review(
+            question=question,
+            answer=answer,
+            retrieved_rows=evaluation["filtered_rows"],
+        )
+
+        critic_confidence = critic_report.get("confidence_score")
+        if critic_confidence is not None:
+            answer["confidence_score"] = min(
+                float(answer.get("confidence_score", 0.0) or 0.0),
+                float(critic_confidence),
+            )
+        if critic_report.get("reduce_confidence"):
+            suggested = float(critic_report.get("suggested_confidence", 0.0) or 0.0)
+            answer["confidence_score"] = min(answer.get("confidence_score", 0.0), suggested)
+            note = str(answer.get("confidence_note", "")).strip()
+            summary = str(critic_report.get("summary", "")).strip()
+            if summary:
+                answer["confidence_note"] = f"{note} Critic: {summary}".strip()
+
+        if not critic_report.get("should_retry") or attempt >= max_retries:
+            break
+
+        attempt += 1
+        plan.top_k = min(int(plan.top_k) + 4, 30)
+        plan.final_k = min(int(plan.final_k) + 2, 15)
+        if attempt >= 2 and plan.retrieve_source == "auto":
+            plan.retrieve_source = "web"
 
     return {
         "answer": answer,

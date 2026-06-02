@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, TypedDict
 from langgraph.graph import END, StateGraph
 
 from app.agents.planner import Planner
+from app.agents.critic import Critic
 from app.agents.synthesizer import Synthesizer
 from app.evaluation.evidence_evaluator import EvidenceEvaluator
 from app.retrieval.retriever import RetrievalRequest, Retriever
@@ -17,6 +18,7 @@ class AnswerState(TypedDict, total=False):
     retrieved_rows: List[Dict[str, Any]]
     evaluation: Dict[str, Any]
     answer: Dict[str, Any]
+    critic: Dict[str, Any]
 
 
 def build_answer_graph() -> Any:
@@ -24,6 +26,7 @@ def build_answer_graph() -> Any:
     retriever = Retriever()
     evaluator = EvidenceEvaluator()
     synthesizer = Synthesizer()
+    critic = Critic()
 
     def plan_node(state: AnswerState) -> AnswerState:
         plan_obj = planner.plan(
@@ -74,17 +77,26 @@ def build_answer_graph() -> Any:
         )
         return {"answer": answer}
 
+    def critic_node(state: AnswerState) -> AnswerState:
+        report = critic.review(
+            question=state["query"],
+            answer=state.get("answer", {}),
+        )
+        return {"critic": report}
+
     graph = StateGraph(AnswerState)
     graph.add_node("plan_step", plan_node)
     graph.add_node("retrieve_step", retrieve_node)
     graph.add_node("evaluate_step", evaluate_node)
     graph.add_node("synthesize_step", synthesize_node)
+    graph.add_node("critic_step", critic_node)
 
     graph.set_entry_point("plan_step")
     graph.add_edge("plan_step", "retrieve_step")
     graph.add_edge("retrieve_step", "evaluate_step")
     graph.add_edge("evaluate_step", "synthesize_step")
-    graph.add_edge("synthesize_step", END)
+    graph.add_edge("synthesize_step", "critic_step")
+    graph.add_edge("critic_step", END)
 
     return graph.compile()
 

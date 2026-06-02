@@ -1,5 +1,6 @@
 from typing import Any, Dict, Optional
 
+from app.agents.critic import Critic
 from app.agents.planner import Planner
 from app.agents.synthesizer import Synthesizer
 from app.evaluation.evidence_evaluator import EvidenceEvaluator
@@ -26,6 +27,7 @@ def run_answer(
     retriever = Retriever()
     evaluator = EvidenceEvaluator()
     synthesizer = Synthesizer()
+    critic = Critic()
 
     plan = planner.plan(query=question, company=company, year=year)
 
@@ -64,9 +66,16 @@ def run_answer(
         intent=str(plan.intent),
         retrieved_rows=evaluation["filtered_rows"],
     )
+    critic_report = critic.review(question=question, answer=answer)
+    if critic_report.get("reduce_confidence"):
+        suggested = float(critic_report.get("suggested_confidence", 0.0) or 0.0)
+        answer["confidence_score"] = min(answer.get("confidence_score", 0.0), suggested)
+        note = str(answer.get("confidence_note", ""))
+        answer["confidence_note"] = f"{note} Critic: {critic_report.get('summary', '')}".strip()
 
     return {
         "answer": answer,
         "plan": planner.to_dict(plan),
         "retrieval": retrieval,
+        "critic": critic_report,
     }

@@ -24,3 +24,4 @@ class AnswerResponse(BaseModel):
     evidence_count: int
     plan: Optional[Dict[str, Any]] = None
     retrieval: Optional[Dict[str, Any]] = None
+    critic: Optional[Dict[str, Any]] = None

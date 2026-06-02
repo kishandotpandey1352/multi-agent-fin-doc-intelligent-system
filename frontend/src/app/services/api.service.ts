@@ -14,6 +14,7 @@ export interface AnswerResponse {
   evidence_count: number;
   plan?: Record<string, unknown>;
   retrieval?: Record<string, unknown>;
+  critic?: Record<string, unknown>;
 }
 
 export interface QueryPayload {

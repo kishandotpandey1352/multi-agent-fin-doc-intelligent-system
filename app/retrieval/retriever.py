@@ -4,9 +4,19 @@ import json
 import re
 from urllib.parse import urlencode
 from urllib.request import urlopen
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.retrieval.search import search
+
+
+_TRUST_SCORES = {
+    "official_filing": 0.9,
+    "official_ir": 0.85,
+    "regulator_gov": 0.9,
+    "reputable_news": 0.65,
+    "unknown_blog": 0.35,
+    "external_web": 0.4,
+}
 
 
 @dataclass
@@ -63,6 +73,9 @@ class Retriever:
         web_rows: List[Dict[str, Any]] = []
         for idx, item in enumerate(raw_results):
             score = max(0.0, 1.0 - (idx * 0.08))
+            url = item.get("url", "")
+            trust_tier, trust_score = self._web_trust_tier(url)
+            final_score = score + (trust_score * 0.1)
             web_rows.append(
                 {
                     "vector_id": -1,
@@ -75,15 +88,17 @@ class Retriever:
                     "token_count": len(item.get("snippet", "").split()),
                     "embedding_model": "web-none",
                     "embedding_dim": 0,
-                    "filename": item.get("url", "web_result"),
+                    "filename": url or "web_result",
                     "company": request.company or "web",
                     "year": request.year or 0,
                     "source_type": "web",
                     "upload_time": "",
-                    "trust_tier": "external_web",
-                    "path": item.get("url", ""),
+                    "trust_tier": trust_tier,
+                    "path": url,
+                    "source_bucket": "web",
                     "score": score,
-                    "final_score": score,
+                    "final_score": final_score,
+                    "trust_score": trust_score,
                 }
             )
 
@@ -227,11 +242,81 @@ class Retriever:
 
     def retrieve(self, request: RetrievalRequest) -> Dict[str, Any]:
         if request.source == "local":
-            return self.retrieve_local(request)
+            local = self.retrieve_local(request)
+            for row in local.get("results", []):
+                row["source_bucket"] = "local"
+            return local
         if request.source == "web":
             return self.retrieve_web(request)
 
         local = self.retrieve_local(request)
-        if local["results"]:
+        local_rows = local.get("results", [])
+        for row in local_rows:
+            row["source_bucket"] = "local"
+
+        if not self._needs_web_fallback(local_rows, request):
             return local
-        return self.retrieve_web(request)
+
+        web = self.retrieve_web(request)
+        web_rows = web.get("results", [])
+        merged = self._merge_results(local_rows, web_rows, request.final_k)
+
+        return {
+            "source": "hybrid",
+            "query": local.get("query", request.question),
+            "rewritten_query": local.get("rewritten_query", request.question),
+            "local_results": local_rows,
+            "web_results": web_rows,
+            "results": merged,
+            "note": "Hybrid retrieval used local evidence with web fallback.",
+        }
+
+    def _needs_web_fallback(self, local_rows: List[Dict[str, Any]], request: RetrievalRequest) -> bool:
+        if not local_rows:
+            return True
+
+        min_rows = max(3, int(request.final_k / 2))
+        if len(local_rows) < min_rows:
+            return True
+
+        scores: List[float] = []
+        for row in local_rows:
+            try:
+                scores.append(float(row.get("final_score", row.get("score", 0.0))))
+            except (TypeError, ValueError):
+                scores.append(0.0)
+        avg_score = sum(scores) / max(len(scores), 1)
+        return avg_score < 0.32
+
+    def _merge_results(
+        self,
+        local_rows: List[Dict[str, Any]],
+        web_rows: List[Dict[str, Any]],
+        final_k: int,
+    ) -> List[Dict[str, Any]]:
+        merged = local_rows + web_rows
+        merged.sort(key=lambda row: row.get("final_score", row.get("score", 0.0)), reverse=True)
+        return merged[:final_k]
+
+    def _web_trust_tier(self, url: str) -> Tuple[str, float]:
+        host = url.lower()
+        if "sec.gov" in host or "sec-report" in host or "sec" in host and "edgar" in host:
+            return "official_filing", _TRUST_SCORES["official_filing"]
+        if host.endswith(".gov") or ".gov/" in host:
+            return "regulator_gov", _TRUST_SCORES["regulator_gov"]
+
+        reputable = (
+            "reuters.com",
+            "bloomberg.com",
+            "wsj.com",
+            "ft.com",
+            "cnbc.com",
+            "marketwatch.com",
+            "finance.yahoo.com",
+        )
+        if any(domain in host for domain in reputable):
+            return "reputable_news", _TRUST_SCORES["reputable_news"]
+
+        if not host:
+            return "unknown_blog", _TRUST_SCORES["unknown_blog"]
+        return "unknown_blog", _TRUST_SCORES["unknown_blog"]

@@ -10,6 +10,9 @@ TRUST_BONUS = {
     "official_filing": 0.08,
     "official_ir": 0.05,
     "curated_research": 0.02,
+    "regulator_gov": 0.06,
+    "reputable_news": 0.02,
+    "unknown_blog": -0.01,
     "external_web": 0.0,
 }
 

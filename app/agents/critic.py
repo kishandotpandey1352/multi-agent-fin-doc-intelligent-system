@@ -173,6 +173,14 @@ class Critic:
 
         if "internal" in trust_tier:
             return 0.9
+        if trust_tier in {"official_filing", "official_ir"}:
+            return 0.85
+        if trust_tier == "regulator_gov":
+            return 0.9
+        if trust_tier == "reputable_news":
+            return 0.65
+        if trust_tier == "unknown_blog":
+            return 0.3
         if "external" in trust_tier or source_type == "web":
             return 0.4
         if source_type in {"annual", "earnings", "presentations"}:

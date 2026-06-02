@@ -53,7 +53,13 @@ class Synthesizer:
             else:
                 findings.append(entry)
 
-            score = float(row.get("final_score", row.get("score", 0.0)) or 0.0)
+            score = float(
+                row.get(
+                    "evidence_score",
+                    row.get("final_score", row.get("score", 0.0)),
+                )
+                or 0.0
+            )
             scores.append(score)
             citations.append(
                 {

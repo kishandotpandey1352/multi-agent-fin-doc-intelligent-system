@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional
 
 from app.agents.planner import Planner
 from app.agents.synthesizer import Synthesizer
+from app.evaluation.evidence_evaluator import EvidenceEvaluator
 from app.retrieval.retriever import RetrievalRequest, Retriever
 
 
@@ -23,6 +24,7 @@ def run_answer(
 ) -> Dict[str, Any]:
     planner = Planner()
     retriever = Retriever()
+    evaluator = EvidenceEvaluator()
     synthesizer = Synthesizer()
 
     plan = planner.plan(query=question, company=company, year=year)
@@ -51,10 +53,16 @@ def run_answer(
         source=str(plan.retrieve_source),
     )
     retrieval = retriever.retrieve(request)
+    evaluation = evaluator.evaluate(
+        question=str(plan.rewritten_query),
+        rows=retrieval.get("results", []),
+        max_results=int(plan.final_k),
+    )
+    retrieval["evaluation"] = evaluation["evaluation"]
     answer = synthesizer.synthesize(
         query=question,
         intent=str(plan.intent),
-        retrieved_rows=retrieval.get("results", []),
+        retrieved_rows=evaluation["filtered_rows"],
     )
 
     return {

@@ -4,6 +4,7 @@ from langgraph.graph import END, StateGraph
 
 from app.agents.planner import Planner
 from app.agents.synthesizer import Synthesizer
+from app.evaluation.evidence_evaluator import EvidenceEvaluator
 from app.retrieval.retriever import RetrievalRequest, Retriever
 
 
@@ -14,12 +15,14 @@ class AnswerState(TypedDict, total=False):
     plan: Dict[str, Any]
     retrieval: Dict[str, Any]
     retrieved_rows: List[Dict[str, Any]]
+    evaluation: Dict[str, Any]
     answer: Dict[str, Any]
 
 
 def build_answer_graph() -> Any:
     planner = Planner()
     retriever = Retriever()
+    evaluator = EvidenceEvaluator()
     synthesizer = Synthesizer()
 
     def plan_node(state: AnswerState) -> AnswerState:
@@ -47,6 +50,21 @@ def build_answer_graph() -> Any:
             "retrieved_rows": retrieval.get("results", []),
         }
 
+    def evaluate_node(state: AnswerState) -> AnswerState:
+        plan = state["plan"]
+        evaluation = evaluator.evaluate(
+            question=str(plan.get("rewritten_query", state["query"])),
+            rows=state.get("retrieved_rows", []),
+            max_results=int(plan.get("final_k", 8)),
+        )
+        retrieval = dict(state.get("retrieval", {}))
+        retrieval["evaluation"] = evaluation["evaluation"]
+        return {
+            "retrieval": retrieval,
+            "retrieved_rows": evaluation["filtered_rows"],
+            "evaluation": evaluation["evaluation"],
+        }
+
     def synthesize_node(state: AnswerState) -> AnswerState:
         plan = state["plan"]
         answer = synthesizer.synthesize(
@@ -59,11 +77,13 @@ def build_answer_graph() -> Any:
     graph = StateGraph(AnswerState)
     graph.add_node("plan_step", plan_node)
     graph.add_node("retrieve_step", retrieve_node)
+    graph.add_node("evaluate_step", evaluate_node)
     graph.add_node("synthesize_step", synthesize_node)
 
     graph.set_entry_point("plan_step")
     graph.add_edge("plan_step", "retrieve_step")
-    graph.add_edge("retrieve_step", "synthesize_step")
+    graph.add_edge("retrieve_step", "evaluate_step")
+    graph.add_edge("evaluate_step", "synthesize_step")
     graph.add_edge("synthesize_step", END)
 
     return graph.compile()

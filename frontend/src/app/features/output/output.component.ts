@@ -1,5 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { AnswerResponse } from '../../services/api.service';
 
 @Component({
@@ -11,4 +12,13 @@ import { AnswerResponse } from '../../services/api.service';
 })
 export class OutputComponent {
   @Input() response: AnswerResponse | null = null;
+
+  constructor(private readonly sanitizer: DomSanitizer) {}
+
+  trustSvg(svg: unknown): SafeHtml {
+    if (typeof svg !== 'string') {
+      return '';
+    }
+    return this.sanitizer.bypassSecurityTrustHtml(svg);
+  }
 }

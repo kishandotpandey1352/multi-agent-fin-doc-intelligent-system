@@ -15,6 +15,9 @@ class IndexResponse(BaseModel):
 class AnswerResponse(BaseModel):
     answer: str
     executive_summary: str
+    highlights: Optional[List[str]] = None
+    numeric_values: Optional[List[str]] = None
+    charts: Optional[List[Dict[str, Any]]] = None
     findings: List[str]
     risks: List[str]
     citations: List[Dict[str, Any]]

@@ -1,0 +1,11 @@
+.chart-block {
+	margin-top: 12px;
+}
+
+.chart {
+	border: 1px solid #e2e2e2;
+	border-radius: 6px;
+	padding: 8px;
+	background: #ffffff;
+	overflow-x: auto;
+}

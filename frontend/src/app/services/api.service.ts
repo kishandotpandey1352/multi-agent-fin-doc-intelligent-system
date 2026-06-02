@@ -5,6 +5,9 @@ import { Observable } from 'rxjs';
 export interface AnswerResponse {
   answer: string;
   executive_summary: string;
+  highlights?: string[];
+  numeric_values?: string[];
+  charts?: Array<Record<string, unknown>>;
   findings: string[];
   risks: string[];
   citations: Array<Record<string, unknown>>;

@@ -1,4 +1,7 @@
+import re
 from typing import Any, Dict, List, Tuple
+
+from app.charts.revenue_chart import build_revenue_chart, extract_revenue_series
 
 
 class Synthesizer:
@@ -72,6 +75,9 @@ class Synthesizer:
             citations_formatted.append(label)
 
         executive_summary = findings[0] if findings else (risks[0] if risks else "")
+        highlights = self._extract_highlights(retrieved_rows)
+        numeric_values = self._extract_numeric_values(retrieved_rows)
+        charts = self._build_charts(intent, retrieved_rows)
         confidence_score, confidence_note = self._confidence(scores, len(citations))
         answer = self._format_output(
             executive_summary=executive_summary,
@@ -84,6 +90,9 @@ class Synthesizer:
 
         return {
             "executive_summary": executive_summary,
+            "highlights": highlights,
+            "numeric_values": numeric_values,
+            "charts": charts,
             "findings": findings,
             "risks": risks,
             "citations": citations,
@@ -143,3 +152,44 @@ class Synthesizer:
             confidence_note,
         ]
         return "\n".join(output_lines)
+
+    def _extract_highlights(self, rows: List[Dict[str, Any]]) -> List[str]:
+        keywords = (
+            "revenue",
+            "net income",
+            "operating income",
+            "gross margin",
+            "operating margin",
+            "cash",
+            "free cash flow",
+            "guidance",
+        )
+        highlights: List[str] = []
+        for row in rows:
+            text = " ".join(str(row.get("text", "")).split())
+            lowered = text.lower()
+            if any(term in lowered for term in keywords):
+                highlights.append(text[:240] + ("..." if len(text) > 240 else ""))
+            if len(highlights) >= 5:
+                break
+        return highlights
+
+    def _extract_numeric_values(self, rows: List[Dict[str, Any]]) -> List[str]:
+        pattern = re.compile(r"\$?\d+(?:,\d{3})*(?:\.\d+)?\s?(?:billion|million|thousand|bn|m|k|%)")
+        values: List[str] = []
+        for row in rows:
+            text = str(row.get("text", ""))
+            for match in pattern.findall(text.lower()):
+                values.append(match)
+            if len(values) >= 10:
+                break
+        return values[:10]
+
+    def _build_charts(self, intent: str, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        charts: List[Dict[str, Any]] = []
+        if intent in {"chart_request", "summary", "comparative_analysis"}:
+            series = extract_revenue_series(rows)
+            chart = build_revenue_chart(series)
+            if chart:
+                charts.append(chart)
+        return charts

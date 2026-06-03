@@ -1,10 +1,16 @@
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.charts.revenue_chart import build_revenue_chart, extract_revenue_series
+from app.llm.ollama_client import get_ollama_client
+import json
 
 
 class Synthesizer:
+    def __init__(self, llm: Optional[object] = None, mode: str = "deterministic") -> None:
+        self.mode = mode
+        self.llm = llm or (get_ollama_client() if mode != "deterministic" else None)
+
     def synthesize(self, query: str, intent: str, retrieved_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         if not retrieved_rows:
             return {
@@ -78,6 +84,18 @@ class Synthesizer:
         highlights = self._extract_highlights(retrieved_rows)
         numeric_values = self._extract_numeric_values(retrieved_rows)
         charts = self._build_charts(intent, retrieved_rows)
+
+        llm_payload: Dict[str, Any] = {}
+        if self.llm and self.mode in {"augment", "replace"}:
+            llm_payload = self._llm_summarize(query, intent, retrieved_rows)
+            if self.mode == "replace" and llm_payload:
+                executive_summary = str(llm_payload.get("executive_summary", executive_summary))
+                findings = list(llm_payload.get("findings", findings))
+                risks = list(llm_payload.get("risks", risks))
+                highlights = list(llm_payload.get("highlights", highlights))
+                numeric_values = list(llm_payload.get("numeric_values", numeric_values))
+            elif self.mode == "augment" and llm_payload:
+                llm_payload["mode"] = "augment"
         confidence_score, confidence_note = self._confidence(scores, len(citations))
         answer = self._format_output(
             executive_summary=executive_summary,
@@ -88,7 +106,7 @@ class Synthesizer:
             confidence_note=confidence_note,
         )
 
-        return {
+        payload = {
             "executive_summary": executive_summary,
             "highlights": highlights,
             "numeric_values": numeric_values,
@@ -102,6 +120,11 @@ class Synthesizer:
             "answer": answer,
             "evidence_count": len(citations),
         }
+
+        if self.llm and self.mode == "augment" and llm_payload:
+            payload["llm_summary"] = llm_payload
+
+        return payload
 
     def _confidence(self, scores: List[float], evidence_count: int) -> Tuple[float, str]:
         if not scores or evidence_count == 0:
@@ -193,3 +216,17 @@ class Synthesizer:
             if chart:
                 charts.append(chart)
         return charts
+
+    def _llm_summarize(self, query: str, intent: str, rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+        if not self.llm:
+            return {}
+        sample = rows[:6]
+        prompt = (
+            "Return JSON with keys: executive_summary, findings (list), risks (list), highlights (list), numeric_values (list).\n"
+            f"Intent: {intent}\nQuestion: {query}\nEvidence: {sample}"
+        )
+        raw = self.llm.generate(prompt, max_tokens=256, temperature=0.0)
+        try:
+            return json.loads(raw)
+        except Exception:
+            return {}

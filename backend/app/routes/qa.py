@@ -18,8 +18,12 @@ def answer_question(request: AnswerRequest) -> AnswerResponse:
         intent=request.intent or "qa",
         top_k=request.top_k,
         final_k=request.final_k,
+        mode=request.mode,
     )
     payload = result["answer"]
     payload["plan"] = result["plan"]
     payload["retrieval"] = result["retrieval"]
+    payload["critic"] = result.get("critic")
+    payload["mode"] = result.get("mode")
+    payload["timings"] = result.get("timings")
     return AnswerResponse(**payload)

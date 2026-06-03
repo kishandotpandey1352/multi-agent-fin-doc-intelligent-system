@@ -7,7 +7,8 @@ export interface AnswerResponse {
   executive_summary: string;
   highlights?: string[];
   numeric_values?: string[];
-  charts?: Array<Record<string, unknown>>;
+  charts?: Array<{ title?: string; svg?: string; [key: string]: unknown }>;
+  llm_summary?: Record<string, unknown>;
   findings: string[];
   risks: string[];
   citations: Array<Record<string, unknown>>;
@@ -15,9 +16,11 @@ export interface AnswerResponse {
   confidence_score: number;
   confidence_note: string;
   evidence_count: number;
+  mode?: string;
   plan?: Record<string, unknown>;
   retrieval?: Record<string, unknown>;
   critic?: Record<string, unknown>;
+  timings?: Record<string, number>;
 }
 
 export interface QueryPayload {
@@ -28,6 +31,7 @@ export interface QueryPayload {
   intent?: string;
   top_k?: number | null;
   final_k?: number | null;
+  mode?: string;
 }
 
 @Injectable({
@@ -38,7 +42,7 @@ export class ApiService {
 
   constructor(private readonly http: HttpClient) {}
 
-  uploadPdf(file: File, company: string, sourceType: string): Observable<{ staged_path: string }> {
+  uploadPdf(file: File, company: string, sourceType: string): Observable<{ staged_path: string; upload_time_seconds?: number }> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('company', company);
@@ -51,8 +55,8 @@ export class ApiService {
     max_docs?: number | null;
     max_pages?: number | null;
     reset_index?: boolean;
-  }): Observable<{ documents: number; chunks: number; vectors: number }> {
-    return this.http.post<{ documents: number; chunks: number; vectors: number }>(`${this.baseUrl}/index/start`, payload);
+  }): Observable<{ documents: number; chunks: number; vectors: number; index_time_seconds?: number }> {
+    return this.http.post<{ documents: number; chunks: number; vectors: number; index_time_seconds?: number }>(`${this.baseUrl}/index/start`, payload);
   }
 
   qa(payload: QueryPayload): Observable<AnswerResponse> {

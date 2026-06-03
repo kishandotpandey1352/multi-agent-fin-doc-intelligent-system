@@ -10,6 +10,7 @@ export interface QueryPayload {
   intent?: string;
   top_k?: number | null;
   final_k?: number | null;
+  mode?: string;
 }
 
 export type QueryEndpoint = 'qa' | 'summary' | 'chart' | 'compare';
@@ -19,11 +20,12 @@ export type QueryEndpoint = 'qa' | 'summary' | 'chart' | 'compare';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './query.component.html',
-  styleUrl: './query.component.css'
+  styleUrls: ['./query.component.css']
 })
 export class QueryComponent {
   @Input() status = '';
   @Input() loading = false;
+  @Input() mode: 'deterministic' | 'augment' | 'replace' = 'deterministic';
   @Output() run = new EventEmitter<{ endpoint: QueryEndpoint; payload: QueryPayload }>();
 
   question = '';
@@ -49,7 +51,8 @@ export class QueryComponent {
         source: this.questionSource,
         intent: this.questionIntent,
         top_k: this.topK,
-        final_k: this.finalK
+        final_k: this.finalK,
+        mode: this.mode
       }
     });
   }

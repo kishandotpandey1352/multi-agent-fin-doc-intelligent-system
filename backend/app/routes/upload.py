@@ -1,4 +1,5 @@
 from pathlib import Path
+import time
 from fastapi import APIRouter, File, Form, UploadFile
 
 from backend.app.schemas.requests import UploadRequest
@@ -17,6 +18,8 @@ async def upload_document(
     source_type: str = Form(...),
 ) -> UploadResponse:
     request = UploadRequest(company=company, source_type=source_type)
+    start = time.perf_counter()
     temp_path = save_upload_to_temp(file.file, file.filename, Path("data/uploads"))
     staged_path = upload_pdf(file_path=temp_path, company=request.company, source_type=request.source_type)
-    return UploadResponse(staged_path=str(staged_path))
+    duration = time.perf_counter() - start
+    return UploadResponse(staged_path=str(staged_path), upload_time_seconds=round(duration, 3))

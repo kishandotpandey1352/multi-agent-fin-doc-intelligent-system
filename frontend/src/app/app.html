@@ -1,18 +1,18 @@
-<div class="page">
+<div class="page" [ngClass]="modes[modeIndex]">
   <header class="hero">
     <div>
-      <p class="eyebrow">Financial Doc Intelligence</p>
-      <h1>Evidence-first answers from filings and research.</h1>
-      <p class="subhead">
-        Upload reports, index the corpus, and ask for grounded summaries, comparisons, or chart-ready findings.
-      </p>
+      <h1>Financial Doc Intelligence</h1>
     </div>
   </header>
 
   <section class="section">
     <div class="section-heading">
       <h2>Workspace</h2>
-      <p>Run ingestion and query workflows in dedicated tabs.</p>
+    </div>
+    <div class="mode-toggle" role="tablist" aria-label="Mode toggle">
+      <button class="mode-button" [class.active]="modeIndex===0" (click)="setMode(0)">Deterministic</button>
+      <button class="mode-button" [class.active]="modeIndex===1" (click)="setMode(1)">Augment</button>
+      <button class="mode-button" [class.active]="modeIndex===2" (click)="setMode(2)">Replace</button>
     </div>
     <div class="split">
       <div class="left-panel">
@@ -24,13 +24,45 @@
           </mat-tab>
           <mat-tab label="Ask">
             <mat-card class="tab-card">
-              <app-query [status]="responseStatus" [loading]="isLoading" (run)="runQuery($event)"></app-query>
+              <app-query [status]="responseStatus" [loading]="isLoading" [mode]="modes[modeIndex]" (run)="runQuery($event)"></app-query>
             </mat-card>
           </mat-tab>
         </mat-tab-group>
       </div>
       <div class="right-panel">
-        <app-indexing [status]="indexStatus" (start)="startIndex($event)"></app-indexing>
+        <div class="card small-index">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <strong>Index Corpus</strong>
+              <div class="status small">{{ indexStatus }}</div>
+            </div>
+            <div>
+              <button class="secondary" (click)="toggleIndex()">{{ indexOpen ? 'Close' : 'Open' }}</button>
+            </div>
+          </div>
+          <div *ngIf="indexOpen" style="margin-top:1rem">
+            <app-indexing [status]="indexStatus" (start)="startIndex($event)"></app-indexing>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <strong>Answer</strong>
+            <div>
+              <button class="primary" *ngIf="response" (click)="openResponse()">View</button>
+            </div>
+          </div>
+          <p class="status">{{ responseStatus }}</p>
+          <div *ngIf="!response && !isLoading" style="color:#6b7280">Run a query to view results.</div>
+          <div *ngIf="isLoading" class="loading-inline">Generating answer…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal for answer -->
+    <div class="modal-backdrop" *ngIf="showResponseModal" (click)="closeResponse()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <button class="close" (click)="closeResponse()">✕</button>
         <app-output [response]="response"></app-output>
       </div>
     </div>

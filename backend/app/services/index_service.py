@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Dict, Optional, Sequence
 
 from app.retrieval.pipeline import build_index
+import time
 
 
 def run_index(
@@ -12,7 +13,8 @@ def run_index(
     max_pages: Optional[int],
     reset_index: bool,
 ) -> Dict[str, int]:
-    return build_index(
+    start = time.perf_counter()
+    stats = build_index(
         data_root=data_root,
         index_dir=index_dir,
         max_docs=max_docs,
@@ -20,3 +22,6 @@ def run_index(
         max_pages=max_pages,
         reset_index=reset_index,
     )
+    stats_out = dict(stats)
+    stats_out["index_time_seconds"] = round(time.perf_counter() - start, 3)
+    return stats_out

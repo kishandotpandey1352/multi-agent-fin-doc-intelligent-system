@@ -7,12 +7,14 @@ from app.agents.critic import Critic
 from app.agents.synthesizer import Synthesizer
 from app.evaluation.evidence_evaluator import EvidenceEvaluator
 from app.retrieval.retriever import RetrievalRequest, Retriever
+from app.llm.ollama_client import get_ollama_client
 
 
 class AnswerState(TypedDict, total=False):
     query: str
     company: Optional[str]
     year: Optional[int]
+    mode: str
     retry_count: int
     max_retries: int
     plan: Dict[str, Any]
@@ -23,18 +25,20 @@ class AnswerState(TypedDict, total=False):
     critic: Dict[str, Any]
 
 
-def build_answer_graph() -> Any:
-    planner = Planner()
-    retriever = Retriever()
-    evaluator = EvidenceEvaluator()
-    synthesizer = Synthesizer()
-    critic = Critic()
+def build_answer_graph(mode: str = "deterministic") -> Any:
+    llm = get_ollama_client()
+    planner = Planner(llm=llm, mode=mode)
+    retriever = Retriever(llm=llm, mode=mode)
+    evaluator = EvidenceEvaluator(llm=llm, mode=mode)
+    synthesizer = Synthesizer(llm=llm, mode=mode)
+    critic = Critic(llm=llm, mode=mode)
 
     def plan_node(state: AnswerState) -> AnswerState:
         plan_obj = planner.plan(
             query=state["query"],
             company=state.get("company"),
             year=state.get("year"),
+            mode=str(state.get("mode", mode)),
         )
         return {"plan": planner.to_dict(plan_obj)}
 
@@ -48,6 +52,7 @@ def build_answer_graph() -> Any:
             top_k=int(plan.get("top_k", 12)),
             final_k=int(plan.get("final_k", 8)),
             source=str(plan.get("retrieve_source", "auto")),
+            mode=str(state.get("mode", mode)),
         )
         retrieval = retriever.retrieve(request)
         return {
@@ -150,12 +155,18 @@ def build_answer_graph() -> Any:
     return graph.compile()
 
 
-def run_answer_pipeline(query: str, company: Optional[str] = None, year: Optional[int] = None) -> AnswerState:
-    app = build_answer_graph()
+def run_answer_pipeline(
+    query: str,
+    company: Optional[str] = None,
+    year: Optional[int] = None,
+    mode: str = "deterministic",
+) -> AnswerState:
+    app = build_answer_graph(mode=mode)
     initial_state: AnswerState = {
         "query": query,
         "company": company,
         "year": year,
+        "mode": mode,
         "retry_count": 0,
         "max_retries": 2,
     }

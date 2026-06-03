@@ -99,6 +99,159 @@ h1 {
 	align-items: start;
 }
 
+.mode-tabs {
+	margin-bottom: 1.2rem;
+	background: rgba(255, 255, 255, 0.96);
+	border-radius: 999px;
+	border: 1px solid rgba(15, 23, 42, 0.08);
+	box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+	overflow: hidden;
+}
+
+/* Mode tab color accents */
+.mode-tabs .mat-tab-labels .mat-tab-label:nth-child(1) {
+	background: #e6fffa; /* teal-50 */
+	color: #065f46;
+}
+.mode-tabs .mat-tab-labels .mat-tab-label:nth-child(2) {
+	background: #fff7ed; /* amber-50 */
+	color: #92400e;
+}
+.mode-tabs .mat-tab-labels .mat-tab-label:nth-child(3) {
+	background: #eef2ff; /* indigo-50 */
+	color: #3730a3;
+}
+.mode-tabs .mat-tab-labels .mat-tab-label.mat-tab-label-active {
+	box-shadow: 0 6px 18px rgba(2,6,23,0.08);
+	transform: translateY(-2px);
+}
+
+/* Panel accents for left (controls) and right (output) */
+.left-panel {
+	border-left: 6px solid #0f766e;
+	padding-left: 1rem;
+}
+.right-panel {
+	border-left: 6px solid #2563eb;
+	padding-left: 1rem;
+}
+
+/* Reduce explanatory copy density */
+.card-title p { display: none; }
+
+/* 3-button mode toggle (top-right) */
+.mode-toggle {
+	position: fixed;
+	top: 1rem;
+	right: 1.5rem;
+	display: flex;
+	gap: 0.4rem;
+	z-index: 1100;
+}
+.mode-button {
+	padding: 0.45rem 0.8rem;
+	border-radius: 999px;
+	border: 1px solid rgba(15,23,42,0.06);
+	background: rgba(255,255,255,0.9);
+	font-weight: 700;
+	cursor: pointer;
+	transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.mode-button:hover { transform: translateY(-2px); }
+.mode-button:nth-child(1) { background: #e6fffa; color: #065f46; }
+.mode-button:nth-child(2) { background: #fff7ed; color: #92400e; }
+.mode-button:nth-child(3) { background: #eef2ff; color: #3730a3; }
+
+/* Dim non-active mode buttons and emphasize the active one */
+.mode-toggle .mode-button {
+	opacity: 0.45;
+	filter: grayscale(60%);
+	transform: none;
+}
+.mode-toggle .mode-button:not(.active):hover {
+	transform: none; /* prevent hover lift on inactive buttons */
+}
+.mode-toggle .mode-button.active {
+	opacity: 1;
+	filter: none;
+	box-shadow: 0 12px 34px rgba(2,6,23,0.14);
+	transform: translateY(-2px);
+}
+
+/* App-wide theme classes keyed to modes */
+.deterministic {
+	--accent-1: #0f766e; /* teal */
+	--accent-2: #065f46;
+	background: linear-gradient(150deg, #f6f4ef 0%, #f7f9fb 48%, #eef3f5 100%);
+}
+.augment {
+	--accent-1: #92400e; /* amber */
+	--accent-2: #78350f;
+	background: linear-gradient(150deg, #fff9f3 0%, #fff7ed 48%, #fffaf0 100%);
+}
+.replace {
+	--accent-1: #3730a3; /* indigo */
+	--accent-2: #2b2560;
+	background: linear-gradient(150deg, #f5f7ff 0%, #eef2ff 48%, #eef4ff 100%);
+}
+
+/* Use accents for primary/secondary buttons and left/right panels */
+.page .primary { background: var(--accent-1); }
+.left-panel { border-left-color: var(--accent-1); }
+.right-panel { border-left-color: var(--accent-2); }
+
+/* small card for index toggle */
+.card.small-index { padding: 0.9rem 1rem; }
+
+/* modal styles */
+.modal-backdrop {
+	position: fixed;
+	inset: 0;
+	background: rgba(2,6,23,0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1200;
+}
+.modal-content {
+	width: min(1100px, 95%);
+	max-height: 90vh;
+	overflow: auto;
+	background: white;
+	border-radius: 12px;
+	padding: 1rem;
+	box-shadow: 0 30px 80px rgba(2,6,23,0.35);
+	position: relative;
+}
+.modal-content .close {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	border: none;
+	background: transparent;
+	font-size: 1.2rem;
+	cursor: pointer;
+}
+
+/* inline loading hint */
+.loading-inline {
+	display: inline-flex;
+	gap: 0.6rem;
+	align-items: center;
+	color: #374151;
+}
+.loading-inline::before {
+	content: '';
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	border: 3px solid rgba(15,23,42,0.12);
+	border-top-color: #0f766e;
+	animation: spin 1s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
 .left-panel,
 .right-panel {
 	display: grid;

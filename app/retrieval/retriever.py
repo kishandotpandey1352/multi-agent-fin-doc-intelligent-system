@@ -7,6 +7,7 @@ from urllib.request import urlopen
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.retrieval.search import search
+from app.llm.ollama_client import get_ollama_client
 
 
 _TRUST_SCORES = {
@@ -28,9 +29,15 @@ class RetrievalRequest:
     top_k: int = 12
     final_k: int = 8
     source: str = "auto"  # auto | local | web
+    mode: str = "deterministic"  # deterministic | augment | replace
 
 
 class Retriever:
+    def __init__(self, llm: Optional[OllamaClient] = None, mode: str = "deterministic") -> None:
+        self.llm = llm or (get_ollama_client() if mode != "deterministic" else None)
+        self.mode = mode
+        self.last_llm_rewrite: Optional[str] = None
+
     def rewrite_question(self, question: str) -> str:
         text = question.strip()
         replacements = {
@@ -44,7 +51,18 @@ class Retriever:
         for key, value in replacements.items():
             if key in lowered:
                 lowered = lowered.replace(key, value)
-        return lowered
+        deterministic = lowered
+
+        self.last_llm_rewrite = None
+        if self.llm and self.mode != "deterministic":
+            prompt = f"Rewrite this query for retrieval succinctly: {question}\nProvide a single-line concise rewrite."
+            llm_text = self.llm.generate(prompt, max_tokens=64, temperature=0.0)
+            if llm_text:
+                self.last_llm_rewrite = llm_text.strip()
+                if self.mode == "replace":
+                    return self.last_llm_rewrite
+
+        return deterministic
 
     def retrieve_local(self, request: RetrievalRequest) -> Dict[str, Any]:
         rewritten = self.rewrite_question(request.question)
@@ -60,6 +78,7 @@ class Retriever:
             "source": "local",
             "query": request.question,
             "rewritten_query": rewritten,
+            "llm_rewrite": self.last_llm_rewrite,
             "results": rows,
         }
 
@@ -106,6 +125,7 @@ class Retriever:
             "source": "web",
             "query": request.question,
             "rewritten_query": rewritten,
+            "llm_rewrite": self.last_llm_rewrite,
             "results": web_rows,
             "note": "Web retrieval used DuckDuckGo Instant Answer API.",
         }
@@ -274,6 +294,16 @@ class Retriever:
     def _needs_web_fallback(self, local_rows: List[Dict[str, Any]], request: RetrievalRequest) -> bool:
         if not local_rows:
             return True
+
+        # If the query is scoped to a company and we have any local rows for that company,
+        # prefer local evidence and skip web fallback to avoid unrelated web results.
+        try:
+            if request.company:
+                for row in local_rows:
+                    if str(row.get("company", "")).lower() == str(request.company).lower():
+                        return False
+        except Exception:
+            pass
 
         min_rows = max(3, int(request.final_k / 2))
         if len(local_rows) < min_rows:

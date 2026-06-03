@@ -1,10 +1,13 @@
 from typing import Any, Dict, Optional
+import time
+import logging
 
 from app.agents.critic import Critic
 from app.agents.planner import Planner
 from app.agents.synthesizer import Synthesizer
 from app.evaluation.evidence_evaluator import EvidenceEvaluator
 from app.retrieval.retriever import RetrievalRequest, Retriever
+from app.llm.ollama_client import get_ollama_client
 
 
 INTENT_PREFIX = {
@@ -22,14 +25,17 @@ def run_answer(
     intent: Optional[str],
     top_k: Optional[int],
     final_k: Optional[int],
+    mode: Optional[str],
 ) -> Dict[str, Any]:
-    planner = Planner()
-    retriever = Retriever()
-    evaluator = EvidenceEvaluator()
-    synthesizer = Synthesizer()
-    critic = Critic()
+    llm_mode = (mode or "deterministic").strip().lower()
+    llm = get_ollama_client()
+    planner = Planner(llm=llm, mode=llm_mode)
+    retriever = Retriever(llm=llm, mode=llm_mode)
+    evaluator = EvidenceEvaluator(llm=llm, mode=llm_mode)
+    synthesizer = Synthesizer(llm=llm, mode=llm_mode)
+    critic = Critic(llm=llm, mode=llm_mode)
 
-    plan = planner.plan(query=question, company=company, year=year)
+    plan = planner.plan(query=question, company=company, year=year, mode=llm_mode)
 
     if intent:
         normalized_intent = intent.strip().lower()
@@ -50,8 +56,16 @@ def run_answer(
     retrieval: Dict[str, Any] = {}
     answer: Dict[str, Any] = {}
     critic_report: Dict[str, Any] = {}
+    # timing accumulators
+    retrieval_time = 0.0
+    evaluation_time = 0.0
+    synthesis_time = 0.0
+    critic_time = 0.0
+    total_start = time.perf_counter()
 
     while attempt <= max_retries:
+        # retrieval
+        t0 = time.perf_counter()
         request = RetrievalRequest(
             question=str(plan.rewritten_query),
             company=plan.company,
@@ -60,26 +74,36 @@ def run_answer(
             top_k=int(plan.top_k),
             final_k=int(plan.final_k),
             source=str(plan.retrieve_source),
+            mode=llm_mode,
         )
         retrieval = retriever.retrieve(request)
+        retrieval_time += time.perf_counter() - t0
+        # evaluation
+        t1 = time.perf_counter()
         evaluation = evaluator.evaluate(
             question=str(plan.rewritten_query),
             rows=retrieval.get("results", []),
             max_results=int(plan.final_k),
         )
+        evaluation_time += time.perf_counter() - t1
         retrieval["evaluation"] = evaluation["evaluation"]
         retrieval["retry_count"] = attempt
-
+        # synthesis
+        t2 = time.perf_counter()
         answer = synthesizer.synthesize(
             query=question,
             intent=str(plan.intent),
             retrieved_rows=evaluation["filtered_rows"],
         )
+        synthesis_time += time.perf_counter() - t2
+        # critic
+        t3 = time.perf_counter()
         critic_report = critic.review(
             question=question,
             answer=answer,
             retrieved_rows=evaluation["filtered_rows"],
         )
+        critic_time += time.perf_counter() - t3
 
         critic_confidence = critic_report.get("confidence_score")
         if critic_confidence is not None:
@@ -104,9 +128,34 @@ def run_answer(
         if attempt >= 2 and plan.retrieve_source == "auto":
             plan.retrieve_source = "web"
 
+    # log retrieval and chart counts to aid debugging (shows up in server logs)
+    try:
+        num_results = len(retrieval.get("results", [])) if isinstance(retrieval, dict) else 0
+    except Exception:
+        num_results = 0
+    try:
+        num_filtered = len(evaluation.get("filtered_rows", [])) if isinstance(evaluation, dict) else 0
+    except Exception:
+        num_filtered = 0
+    try:
+        num_charts = len(answer.get("charts", [])) if isinstance(answer.get("charts", []), list) else 0
+    except Exception:
+        num_charts = 0
+    logging.getLogger(__name__).info(
+        f"run_answer: retrieval_results={num_results} filtered_rows={num_filtered} charts={num_charts}"
+    )
+
     return {
         "answer": answer,
         "plan": planner.to_dict(plan),
         "retrieval": retrieval,
         "critic": critic_report,
+        "mode": llm_mode,
+        "timings": {
+            "retrieval_seconds": round(retrieval_time, 3),
+            "evaluation_seconds": round(evaluation_time, 3),
+            "synthesis_seconds": round(synthesis_time, 3),
+            "critic_seconds": round(critic_time, 3),
+            "total_seconds": round(time.perf_counter() - total_start, 3),
+        },
     }

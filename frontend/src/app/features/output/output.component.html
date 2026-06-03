@@ -50,5 +50,15 @@
       <p class="score">{{ resp.confidence_score }}</p>
       <p>{{ resp.confidence_note }}</p>
     </div>
+    <div *ngIf="resp.timings">
+      <h3>Timings (s)</h3>
+      <ul>
+        <li *ngIf="resp.timings?.['retrieval_seconds']">Retrieval: {{ resp.timings?.['retrieval_seconds'] }}</li>
+        <li *ngIf="resp.timings?.['evaluation_seconds']">Evaluation: {{ resp.timings?.['evaluation_seconds'] }}</li>
+        <li *ngIf="resp.timings?.['synthesis_seconds']">Synthesis: {{ resp.timings?.['synthesis_seconds'] }}</li>
+        <li *ngIf="resp.timings?.['critic_seconds']">Critic: {{ resp.timings?.['critic_seconds'] }}</li>
+        <li *ngIf="resp.timings?.['total_seconds']"><strong>Total: {{ resp.timings?.['total_seconds'] }}</strong></li>
+      </ul>
+    </div>
   </div>
 </article>

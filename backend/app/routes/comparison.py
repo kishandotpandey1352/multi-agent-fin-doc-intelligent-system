@@ -18,8 +18,11 @@ def compare(request: AnswerRequest) -> AnswerResponse:
         intent="comparative_analysis",
         top_k=request.top_k,
         final_k=request.final_k,
+        mode=request.mode,
     )
     payload = result["answer"]
     payload["plan"] = result["plan"]
     payload["retrieval"] = result["retrieval"]
+    payload["critic"] = result.get("critic")
+    payload["mode"] = result.get("mode")
     return AnswerResponse(**payload)

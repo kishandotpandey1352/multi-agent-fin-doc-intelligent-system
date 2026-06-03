@@ -1,0 +1,11 @@
+<svg viewBox="0 0 520 240" xmlns="http://www.w3.org/2000/svg">
+<rect width="520" height="240" fill="#ffffff" />
+<path d="M 36.0 204.0 L 185.3 148.0 L 334.7 92.0 L 484.0 36.0" fill="none" stroke="#1f77b4" stroke-width="2" />
+<circle cx="36.0" cy="204.0" r="3" fill="#1f77b4" />
+<circle cx="185.3" cy="148.0" r="3" fill="#1f77b4" />
+<circle cx="334.7" cy="92.0" r="3" fill="#1f77b4" />
+<circle cx="484.0" cy="36.0" r="3" fill="#1f77b4" />
+<text x="36" y="228" font-size="12" fill="#555">2018</text>
+<text x="484" y="228" font-size="12" fill="#555" text-anchor="end">2021</text>
+<text x="36" y="26" font-size="12" fill="#555">Revenue trend</text>
+</svg>

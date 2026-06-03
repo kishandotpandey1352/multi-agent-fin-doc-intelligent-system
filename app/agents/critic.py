@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
+from app.llm.ollama_client import get_ollama_client
+import json
 
 
 _STOPWORDS = {
@@ -50,6 +53,10 @@ class CriticReport:
 
 
 class Critic:
+    def __init__(self, llm: Optional[object] = None, mode: str = "deterministic") -> None:
+        self.mode = mode
+        self.llm = llm or (get_ollama_client() if mode != "deterministic" else None)
+
     def review(
         self,
         question: str,
@@ -124,7 +131,7 @@ class Critic:
             summary=" ".join(summary_bits),
         )
 
-        return {
+        payload = {
             "answered_coverage": report.answered_coverage,
             "missing_aspects": report.missing_aspects,
             "citations_present": report.citations_present,
@@ -140,6 +147,35 @@ class Critic:
             "retry_reasons": report.retry_reasons,
             "summary": report.summary,
         }
+
+        if self.llm and self.mode in {"augment", "replace"}:
+            llm_report = self._llm_review(question, answer, rows)
+            if self.mode == "replace" and llm_report:
+                payload.update(llm_report)
+            elif self.mode == "augment" and llm_report:
+                payload["llm_report"] = llm_report
+
+        return payload
+
+    def _llm_review(
+        self,
+        question: str,
+        answer: Dict[str, Any],
+        rows: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        if not self.llm:
+            return {}
+        prompt = (
+            "Return JSON with keys: answered_coverage, missing_aspects, citations_present, unsupported_findings, "
+            "unsupported_risks, confidence_score, reduce_confidence, suggested_confidence, should_retry, retry_reasons, summary.\n"
+            f"Question: {question}\nAnswer: {answer}\nEvidence: {rows[:5]}"
+        )
+        raw = self.llm.generate(prompt, max_tokens=200, temperature=0.0)
+        try:
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
 
     def _evidence_quality(self, rows: List[Dict[str, Any]]) -> Tuple[float, float]:
         if not rows:

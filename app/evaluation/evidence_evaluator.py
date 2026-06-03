@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+from app.llm.ollama_client import get_ollama_client
+
 
 _STOPWORDS = {
     "a",
@@ -44,6 +46,10 @@ class EvidenceScore:
 
 
 class EvidenceEvaluator:
+    def __init__(self, llm: Optional[OllamaClient] = None, mode: str = "deterministic") -> None:
+        self.llm = llm or (get_ollama_client() if mode != "deterministic" else None)
+        self.mode = mode
+
     def evaluate(
         self,
         question: str,
@@ -51,9 +57,16 @@ class EvidenceEvaluator:
         max_results: Optional[int] = None,
         threshold: float = 0.45,
     ) -> Dict[str, Any]:
+        llm_scores: Dict[str, EvidenceScore] = {}
+        if self.llm and self.mode == "replace":
+            llm_scores = self._llm_score_rows(question, rows)
+
         scored: List[Tuple[Dict[str, Any], EvidenceScore]] = []
         for row in rows:
-            score = self._score_row(question, row)
+            if row.get("chunk_id") in llm_scores:
+                score = llm_scores[row.get("chunk_id")]
+            else:
+                score = self._score_row(question, row)
             scored.append((row, score))
 
         scored.sort(key=lambda item: item[1].overall, reverse=True)
@@ -94,10 +107,58 @@ class EvidenceEvaluator:
             ],
         }
 
+        if self.llm and self.mode == "augment":
+            evaluation["llm_note"] = self._llm_note(question, rows[:6])
+
         return {
             "filtered_rows": filtered_rows,
             "evaluation": evaluation,
         }
+
+    def _llm_score_rows(self, question: str, rows: List[Dict[str, Any]]) -> Dict[str, EvidenceScore]:
+        if not rows:
+            return {}
+        sample = rows[:8]
+        prompt = (
+            "Return JSON: {\"scores\": [{\"chunk_id\":..., \"relevance\":0.0,...}]}\n"
+            f"Question: {question}\nChunks: {sample}"
+        )
+        raw = self.llm.generate(prompt, max_tokens=256, temperature=0.0)
+        try:
+            result = json.loads(raw)
+        except Exception:
+            return {}
+        scores = result.get("scores") if isinstance(result, dict) else None
+        if not isinstance(scores, list):
+            return {}
+
+        output: Dict[str, EvidenceScore] = {}
+        for item in scores:
+            if not isinstance(item, dict):
+                continue
+            chunk_id = str(item.get("chunk_id", ""))
+            if not chunk_id:
+                continue
+            score = EvidenceScore(
+                relevance=float(item.get("relevance", 0.0) or 0.0),
+                specificity=float(item.get("specificity", 0.0) or 0.0),
+                trustworthiness=float(item.get("trustworthiness", 0.0) or 0.0),
+                recency=float(item.get("recency", 0.0) or 0.0),
+                support=float(item.get("support", 0.0) or 0.0),
+                overall=float(item.get("overall", 0.0) or 0.0),
+                justification=str(item.get("justification", "")),
+            )
+            output[chunk_id] = score
+        return output
+
+    def _llm_note(self, question: str, rows: List[Dict[str, Any]]) -> str:
+        if not self.llm or not rows:
+            return ""
+        prompt = (
+            "Provide a single-sentence note about evidence quality for this question.\n"
+            f"Question: {question}\nChunks: {rows}"
+        )
+        return self.llm.generate(prompt, max_tokens=64, temperature=0.0)
 
     def _score_row(self, question: str, row: Dict[str, Any]) -> EvidenceScore:
         relevance = self._relevance(row, question)

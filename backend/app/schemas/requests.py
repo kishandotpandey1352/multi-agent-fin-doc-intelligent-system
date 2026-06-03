@@ -22,3 +22,4 @@ class AnswerRequest(BaseModel):
     intent: Optional[str] = None  # qa | summary | chart_request | comparative_analysis
     top_k: Optional[int] = None
     final_k: Optional[int] = None
+    mode: Optional[str] = "deterministic"  # deterministic | augment | replace

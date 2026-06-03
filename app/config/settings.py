@@ -12,6 +12,8 @@ class Settings:
     langsmith_project: str
     langsmith_endpoint: str
     langchain_tracing_v2: str
+    ollama_base_url: str
+    ollama_model: str
 
 
 def load_settings() -> Settings:
@@ -23,4 +25,6 @@ def load_settings() -> Settings:
         langsmith_project=os.getenv("LANGSMITH_PROJECT", "multi-agent-fin-doc-intel"),
         langsmith_endpoint=os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"),
         langchain_tracing_v2=os.getenv("LANGCHAIN_TRACING_V2", "true"),
+        ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+        ollama_model=os.getenv("OLLAMA_MODEL", "qwen2.5:7b-instruct"),
     )
